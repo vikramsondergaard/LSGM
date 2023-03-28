@@ -88,6 +88,24 @@ class OMNIGLOT(Dataset):
     def __len__(self):
         return len(self.data)
 
+class AudioMNISTDataset(Dataset):
+    def __init__(self, root, name='', train=True, transform=None, encoded=False):
+        self.train = train
+        self.name = name
+        self.transform = transform
+        if self.train:
+            self.data_path = os.path.join(root, 'audio-mnist/train/')
+        else:
+            self.data_path = os.path.join(root, 'audio-mnist/val/')
+        self.data = np.array([load(os.path.join(self.data_path, f)) for f in os.listdir(self.data_path)])
+        self.encoded = encoded # still not sure if I need this, just copying it over from LMDB dataset for now
+
+    def __getitem__(self, index):
+        return self.data[index]
+        
+    def __len__(self):
+        return self.data.size[0]
+
 
 def get_loaders_eval(dataset, root, distributed, batch_size, augment=True, drop_last_train=True, shuffle_train=True,
                      binarize_binary_datasets=True):
@@ -180,6 +198,10 @@ def get_loaders_eval(dataset, root, distributed, batch_size, augment=True, drop_
         train_transform = train_transform if augment else valid_transform
         train_data = LMDBDataset(root=root, name='ffhq', train=True, transform=train_transform)
         valid_data = LMDBDataset(root=root, name='ffhq', train=False, transform=valid_transform)
+    elif dataset == 'audio-mnist':
+        num_classes = 10
+        train_data = AudioMNISTDataset(root=root, train=True)
+        valid_data = AudioMNISTDataset(root=root, train=False)
     else:
         raise NotImplementedError
 
@@ -191,7 +213,7 @@ def get_loaders_eval(dataset, root, distributed, batch_size, augment=True, drop_
     train_queue = torch.utils.data.DataLoader(
         train_data, batch_size=batch_size,
         shuffle=(train_sampler is None) and shuffle_train,
-        sampler=train_sampler, pin_memory=True, num_workers=8, drop_last=drop_last_train)
+        sampler=train_sampler, pin_memory=True, num_workers=2, drop_last=drop_last_train)
 
     valid_queue = torch.utils.data.DataLoader(
         valid_data, batch_size=batch_size,
