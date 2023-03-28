@@ -1,8 +1,8 @@
 import os
 import random
+import numpy as np
 
 from torch.utils.data import Dataset
-from numpy import array
 from pickle import load, dump
 from urllib.request import urlretrieve
 from scipy.io.wavfile import read
@@ -14,63 +14,52 @@ class AudioMNISTDataset(Dataset):
         self.name = name
         self.transform = transform
         if self.train:
-            self.data_path = os.path.join(root, 'audio-mnist/train/')
+            self.data_path = os.path.join(root, 'train.pickle')
         else:
-            self.data_path = os.path.join(root, 'audio-mnist/val/')
-        self.data = array([load(os.path.join(self.data_path, f)) for f in os.listdir(self.data_path)])
+            self.data_path = os.path.join(root, 'val.pickle')
+        self.data = load(self.data_path)
         self.encoded = encoded # still not sure if I need this, just copying it over from LMDB dataset for now
 
     def __getitem__(self, index):
         return self.data[index], 0 # might be able to add labels but don't see the need if we're making a generative model
         
     def __len__(self):
-        return self.data.size[0]
+        return self.data.shape[0]
 
-def download_audio_mnist_dataset(data_dir):
+
+def load_audio_mnist_dataset(data_dir):
     # Make all the directories necessary for the dataset
-    make_directories(data_dir)
-    train, val = split_data()
-    download_files(train, os.path.join(data_dir, 'train'))
-    download_files(val, os.path.join(data_dir, 'val'))
-    return
-
-def make_directories(data_dir):
-    # Make the initial directory if it doesn't already exist
-    make_directory(data_dir)
-    # Split the data according to the default random seed and train percentage
-    train, val = split_data()
-    # Make the training directory if it doesn't already exist
-    train_dir = os.path.join(data_dir, 'train')
-    make_directory(train_dir)
-    # Make the validation directory if it doesn't already exist
-    val_dir = os.path.join(data_dir, 'val')
-    make_directory(val_dir)
-
-def make_directory(directory):
-    if not os.path.exists(directory):
-        os.mkdir(directory)
-        print('Created directory', directory)
+    if not os.path.exists(data_dir):
+        os.mkdir(data_dir)
+        print('Created directory', data_dir)
     else:
-        print(directory, 'already exists.')
+        print(data_dir, 'already exists.')
+    train, val = split_data()
+    download_files(train, os.path.join(data_dir, 'train.pickle'))
+    download_files(val, os.path.join(data_dir, 'val.pickle'))
+    return
 
 def download_files(batches, save_dir):
     # This is the base of the Git repo containing all the audio-MNIST data
-    url_base = 'https://github.com/soerenab/AudioMNIST/tree/master/data'
-    for b in batches:
-        print(f'Preparing to download batch {b} to directory {save_dir}.')
-        batch = '0' + str(b) if b < 10 else str(b)
-        batch_dir = os.path.join(url_base, batch)
-        for i in range(10):
-            for j in range(50):
-                filename = f'{i}_{batch}_{j}'
-                if not os.path.exists(os.path.join(save_dir, f'{filename}.pickle')):
+    url_base = 'https://github.com/soerenab/AudioMNIST/blob/master/data/'
+    data = []
+    if not os.path.exists(save_dir):
+        for b in batches:
+            print(f'Preparing to download batch {b} to file {save_dir}.')
+            batch = '0' + str(b) if b < 10 else str(b)
+            batch_dir = os.path.join(url_base, batch)
+            for i in range(10):
+                for j in range(50):
+                    filename = f'{i}_{batch}_{j}'
                     file = os.path.join(batch_dir, f'{filename}.wav?raw=true')
-                    data, _ = urlretrieve(file)
-                    save_path = os.path.join(save_dir, f'{filename}.pickle')
-                    with open(save_path, 'wb') as savefile:
-                        dump(data, savefile)
-            print(f'Downloaded all utterances of {i} in batch {b}...')
-        print(f'Downloaded batch {b}.')
+                    wav_data, _ = urlretrieve(file)
+                    rate, read_data = read(wav_data)
+                    data.append(read_data)
+
+                print(f'Downloaded all utterances of {i} in batch {b}...')
+            print(f'Downloaded batch {b}.')
+        with open(save_dir, 'wb') as savefile:
+            dump(np.array(data), savefile)
 
 
 def split_data(seed=255, train_percentage=0.9): # Default value is a random integer chosen from RANDOM.org (coincidentally 255!)

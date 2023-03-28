@@ -18,6 +18,7 @@ from scipy.io import loadmat
 from torch.utils.data import Dataset
 from PIL import Image
 from torch._utils import _accumulate
+from util.audio_mnist_datasets import AudioMNISTDataset, load_audio_mnist_dataset
 
 class Binarize(object):
     """ This class introduces a binarization transformation
@@ -199,6 +200,7 @@ def get_loaders_eval(dataset, root, distributed, batch_size, augment=True, drop_
         train_data = LMDBDataset(root=root, name='ffhq', train=True, transform=train_transform)
         valid_data = LMDBDataset(root=root, name='ffhq', train=False, transform=valid_transform)
     elif dataset == 'audio-mnist':
+        load_audio_mnist_dataset()
         num_classes = 10
         train_data = AudioMNISTDataset(root=root, train=True)
         valid_data = AudioMNISTDataset(root=root, train=False)
