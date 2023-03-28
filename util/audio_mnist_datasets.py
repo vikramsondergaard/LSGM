@@ -1,10 +1,9 @@
 import os
 import random
-import numpy as np
+import urllib
+import pickle
 
 from torch.utils.data import Dataset
-from pickle import load, dump
-from urllib.request import urlretrieve
 from scipy.io.wavfile import read
 
 class AudioMNISTDataset(Dataset):
@@ -43,23 +42,35 @@ def download_files(batches, save_dir):
     # This is the base of the Git repo containing all the audio-MNIST data
     url_base = 'https://github.com/soerenab/AudioMNIST/blob/master/data/'
     data = []
-    if not os.path.exists(save_dir):
-        for b in batches:
-            print(f'Preparing to download batch {b} to file {save_dir}.')
-            batch = '0' + str(b) if b < 10 else str(b)
-            batch_dir = os.path.join(url_base, batch)
-            for i in range(10):
-                for j in range(50):
-                    filename = f'{i}_{batch}_{j}'
-                    file = os.path.join(batch_dir, f'{filename}.wav?raw=true')
-                    wav_data, _ = urlretrieve(file)
-                    rate, read_data = read(wav_data)
-                    data.append(read_data)
+    starting_batch = 0
+    if os.path.exists(save_dir):
+        with open(save_dir, 'r') as pickle_file:
+            data = pickle.load(pickle_file)
+        starting_batch = len(data) // 50
+    for b in batches[starting_batch:]:
+        print(f'Preparing to download batch {b} to file {save_dir}.')
+        batch = '0' + str(b) if b < 10 else str(b)
+        batch_dir = os.path.join(url_base, batch)
+        for i in range(10):
+            for j in range(50):
+                filename = f'{i}_{batch}_{j}'
+                filepath = os.path.join(batch_dir, f'{filename}.wav?raw=true')
+                read_data = grab_data(filepath)
+                data.append(read_data)
 
-                print(f'Downloaded all utterances of {i} in batch {b}...')
-            print(f'Downloaded batch {b}.')
+            print(f'Downloaded all utterances of {i} in batch {b}...')
+        print(f'Downloaded batch {b}.')
         with open(save_dir, 'wb') as savefile:
-            dump(np.array(data), savefile)
+            pickle.dump(data, savefile)
+    
+
+def grab_data(filepath):
+    try:
+        wav_data, _ = urllib.request.urlretrieve(filepath)
+        rate, read_data = read(wav_data)
+        return read_data
+    except urllib.error.HTTPError:
+        return grab_data(filepath)
 
 
 def split_data(seed=255, train_percentage=0.9): # Default value is a random integer chosen from RANDOM.org (coincidentally 255!)
