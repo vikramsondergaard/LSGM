@@ -57,7 +57,7 @@ def download_files(batches, save_dir):
     # This is the base of the Git repo containing all the audio-MNIST data
     url_base = 'https://github.com/soerenab/AudioMNIST/tree/master/data'
     for b in batches:
-        print(f'Preparing to download batch {b}')
+        print(f'Preparing to download batch {b} to directory {save_dir}.')
         batch = '0' + str(b) if b < 10 else str(b)
         batch_dir = os.path.join(url_base, batch)
         for i in range(10):
