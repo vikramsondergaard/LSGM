@@ -97,14 +97,14 @@ class AudioMNISTDataset(Dataset):
             self.data_path = os.path.join(root, 'audio-mnist/train/')
         else:
             self.data_path = os.path.join(root, 'audio-mnist/val/')
-        self.data = np.array([load(os.path.join(self.data_path, f)) for f in os.listdir(self.data_path)])
+        self.data = [load(os.path.join(self.data_path, f)) for f in os.listdir(self.data_path)]
         self.encoded = encoded # still not sure if I need this, just copying it over from LMDB dataset for now
 
     def __getitem__(self, index):
-        return self.data[index]
+        return self.data[index], 0 # return zero as label
         
     def __len__(self):
-        return self.data.size[0]
+        return len(self.data[0])
 
 
 def get_loaders_eval(dataset, root, distributed, batch_size, augment=True, drop_last_train=True, shuffle_train=True,
