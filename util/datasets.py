@@ -89,24 +89,6 @@ class OMNIGLOT(Dataset):
     def __len__(self):
         return len(self.data)
 
-class AudioMNISTDataset(Dataset):
-    def __init__(self, root, name='', train=True, transform=None, encoded=False):
-        self.train = train
-        self.name = name
-        self.transform = transform
-        if self.train:
-            self.data_path = os.path.join(root, 'audio-mnist/train/')
-        else:
-            self.data_path = os.path.join(root, 'audio-mnist/val/')
-        self.data = [load(os.path.join(self.data_path, f)) for f in os.listdir(self.data_path)]
-        self.encoded = encoded # still not sure if I need this, just copying it over from LMDB dataset for now
-
-    def __getitem__(self, index):
-        return self.data[index], 0 # return zero as label
-        
-    def __len__(self):
-        return len(self.data[0])
-
 
 def get_loaders_eval(dataset, root, distributed, batch_size, augment=True, drop_last_train=True, shuffle_train=True,
                      binarize_binary_datasets=True):

@@ -2,9 +2,10 @@ import os
 import random
 import urllib
 import pickle
+import librosa
+import numpy as np
 
 from torch.utils.data import Dataset
-from scipy.io.wavfile import read
 
 """
 Class for an Audio-MNIST dataset. More or less the same as other datasets used
@@ -29,7 +30,7 @@ class AudioMNISTDataset(Dataset):
             self.data_path = os.path.join(root, 'train.pickle') # Get the training data
         else:
             self.data_path = os.path.join(root, 'val.pickle')   # Get the validation data
-        self.data = pickle.load(self.data_path)
+        self.data = [self.convert_to_spectrogram(d) for d in pickle.load(self.data_path)] # NB this converts to Mels by default
         self.encoded = encoded # still not sure if I need this, just copying it over from LMDB dataset for now
 
     """
@@ -43,7 +44,34 @@ class AudioMNISTDataset(Dataset):
     @return  the length of the data
     """
     def __len__(self):
-        return self.data.shape[0]
+        return len(self.data)
+
+    """
+    Convert WAV data to a spectrogram for use in a diffusion model training scenario.
+
+    @param data        the WAV file to convert to a spectrogram
+    @param sr          the sampling rate in the WAV file
+    @param n_fft       the frame size from which to create the spectrogram
+    @param hop_length  the hop size between frames
+    @param use_mel     whether to use a Mel spectrogram or just a regular spectrogram
+    @param n_mels      the number of Mel banks
+    @return            a spectrogram of the provided data
+    """
+    def convert_to_spectrogram(self, data, sr=22050, n_fft=2048, hop_length=512, use_mel=True, n_mels=10):
+    if use_mel:
+        # Code adapted from https://github.com/musikalkemist/AudioSignalProcessingForML/blob/master/18%20-%20Extracting%20Mel%20Spectrograms%20with%20Python/Extracting%20Mel%20Spectrograms.ipynb
+        # Thanks Valerio Velardo (The Sound of AI) for the tutorials!
+        return librosa.feature.melspectrogram(y=data, sr=sr, n_fft=n_fft, hop_length=hop_length, n_mels=n_mels)
+    else:
+        # Code adapted from https://github.com/musikalkemist/AudioSignalProcessingForML/blob/master/16%20-%20Extracting%20Spectrograms%20from%20Audio%20with%20Python/Extracting%20Spectrograms%20from%20Audio%20with%20Python.ipynb
+        # Thanks Valerio Velardo (The Sound of AI) for the tutorials!
+
+        # Perform a short-time Fourier transform on the data to get an "image"
+        stft = librosa.stft(y=data, n_fft=n_fft, hop_length=hop_length)
+        # Convert it to a spectrogram by removing complex component from STFT and squaring
+        spectrogram = np.abs(stft) ** 2
+        # Convert from Hertz to DB for a more semantically meaningful spectrogram
+        return librosa.power_to_db(spectrogram)
 
 """
 Download the Audio-MNIST dataset from GitHub, pickle it and save it to
@@ -94,7 +122,9 @@ def download_files(batches, save_dir):
                 filename = f'{i}_{batch}_{j}'
                 # Need to get the raw data from GitHub
                 filepath = os.path.join(batch_dir, f'{filename}.wav?raw=true')
-                read_data = grab_data(filepath)
+                read_data, sr = grab_data(filepath)
+                # Just adding the raw WAV data here. Conversion to spectrogram
+                # will be done at processing time (so we can choose raw/Mel spectrogram)
                 data.append(read_data)
 
             print(f'Downloaded all utterances of {i} in batch {b}...')
@@ -117,9 +147,9 @@ def grab_data(filepath):
     # ping the server until it finally gets a packet.
     try:
         wav_data, _ = urllib.request.urlretrieve(filepath)
-        # scipy.io.wavfile will read the raw data and convert it to an array
-        rate, read_data = read(wav_data)
-        return read_data
+        # Use librosa to process the data
+        read_data, sr = librosa.load(wav_data)
+        return read_data, sr
     except urllib.error.HTTPError:
         return grab_data(filepath)
 

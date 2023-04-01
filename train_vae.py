@@ -350,7 +350,7 @@ if __name__ == '__main__':
     # data
     parser.add_argument('--dataset', type=str, default='cifar10',
                         choices=['cifar10', 'celeba_64', 'celeba_256', 'mnist', 'omniglot',
-                                 'imagenet_32', 'ffhq', 'lsun_bedroom_128', 'lsun_church_256'],
+                                 'imagenet_32', 'ffhq', 'lsun_bedroom_128', 'lsun_church_256', 'audio-mnist'],
                         help='which dataset to use')
     parser.add_argument('--data', type=str, default='/tmp/nvae-diff/data',
                         help='location of the data corpus')
@@ -424,6 +424,11 @@ if __name__ == '__main__':
                              'Bernoulli, or discretized logistic.')
     parser.add_argument('--progressive_input_vae', type=str, default='none', choices=['none', 'input_skip'],
                         help='progressive type for input')
+
+    parser.add_argument('--use_mel', type=bool, default=True, 
+                       help='Whether to use Mel spectrograms or regular spectrograms.'
+                       'Only applies if the audio-mnist dataset is selected.')
+
     # NAS
     parser.add_argument('--use_se', action='store_true', default=False,
                         help='This flag enables squeeze and excitation.')
@@ -453,6 +458,8 @@ if __name__ == '__main__':
     utils.create_exp_dir(args.save)
 
     size = args.num_process_per_node
+
+    args.audio = args.dataset == 'audio-mnist'
 
     if size > 1:
         args.distributed = True
